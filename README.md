@@ -30,6 +30,6 @@ When rendering with both methods, first the *SPS* method is done and then the *d
 ## What to expect
 If you are using an HMD that is having co-planar screens and/or using symmetric projections, then you will observe nothing; the images in all modes will be exactly the same. (Except for the red tint in *both* methods.)
 
-If you are using an HMD that is using asymmetric projections, then you can observe the difference in the images. By changing between *SPS* and *default* (keys S and D) you will see that the objects in the right eye move a bit.
+If you are using an HMD that is using asymmetric projections, then you can observe the difference in the images. By changing between *SPS* and *default* (keys S and D) you will see that the objects in the right eye move a bit. This can be observed by placing the HMD on a desk too and changing modes.
 
 Entering the *both* method, the left eye is fully covered in red or is fully covered in white but the right eye contains objects with both tints. This happens because the objects in the right eye are not in the exact same location when calculated with Single Pass Stereo.
