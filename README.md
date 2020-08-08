@@ -33,3 +33,8 @@ If you are using an HMD that is having co-planar screens and/or using symmetric 
 If you are using an HMD that is using asymmetric projections, then you can observe the difference in the images. By changing between *SPS* and *default* (keys S and D) you will see that the objects in the right eye move a bit. This can be observed by placing the HMD on a desk too and changing modes.
 
 Entering the *both* method, the left eye is fully covered in red or is fully covered in white but the right eye contains objects with both tints. This happens because the objects in the right eye are not in the exact same location when calculated with Single Pass Stereo.
+
+Below is a capture showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys S and D.
+
+![Diff between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Diff between SPS and default rendering for the right eye")
+
