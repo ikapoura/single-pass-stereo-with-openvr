@@ -1,4 +1,4 @@
-# Single Pass Stereo with SteamVR
+# Single Pass Stereo with OpenVR
 
 ## What this project is
 The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes.
