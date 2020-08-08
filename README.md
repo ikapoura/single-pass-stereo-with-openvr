@@ -17,7 +17,7 @@ There are keyboard bindings that allow the user to change on-the-fly how the sce
 
 When rendering with the *default* method, the scene is rendered exactly as supplied with the SDK as if no changes were done.
 
-When rendering with the *Single Pass Stereo* method, the scene is rendered wholly with SPS.
+When rendering with the *Single Pass Stereo* method, the scene is rendered only with SPS.
 
 When rendering with both methods, first the *SPS* method is done and then the *default* method is rendered on top of it. In this mode, the output of *SPS* is given a red tint in order to differentiate between the pixels produced by the two methods.
 
