@@ -6,12 +6,6 @@ The focus of this project is to show that Single Pass Stereo is not producing th
 This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR (SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
 
 It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliaskapouranis.com/2020/07/13/is-single-pass-stereo-worth-it/) and [Single Pass Stereo: possibly dangerous for the eyes?](https://iliaskapouranis.com/).
- 
-## How to build
-1. Download the [OpenVR SDK](https://github.com/ValveSoftware/openvr).
-2. Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.
-3. Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).
-4. Build and run the application in either Debug or Release.
 
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
@@ -19,7 +13,7 @@ There are keyboard bindings that allow the user to change on-the-fly how the sce
 <li>Key S: Render the scene using *Single Pass Stereo*</li>
 <li>Key D: Render the scene using the *default* method</li>
 <li>Key A: Render the scene by overlapping *both* methods</li>
- </ul>
+</ul>
 
 When rendering with the *default* method, the scene is rendered exactly as supplied with the SDK as if no changes were done.
 
@@ -38,3 +32,18 @@ Below is a capture showing both eyes side by side. You can observe that the righ
 
 ![Diff between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Diff between SPS and default rendering for the right eye")
 
+## Prebuilt binary for Windows 10
+I have added a prebuilt binary in order to execute the program without building it.
+<ol>
+<li>Download the repository.</li>
+<li>Run SteamVR.</li>
+<li>Run the executable sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.</li>
+</ol>
+
+## How to build
+<ol>
+<li>Download the [OpenVR SDK](https://github.com/ValveSoftware/openvr).</li>
+<li>Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.</li>
+<li>Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).</li>
+<li>Build and run the application in either Debug or Release.</li>
+</ol>
