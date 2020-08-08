@@ -5,7 +5,7 @@ The focus of this project is to show that Single Pass Stereo is not producing th
 
 This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR (SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
 
-It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliaskapouranis.com/2020/07/13/is-single-pass-stereo-worth-it/) and [Single Pass Stereo: possibly dangerous for the eyes?](https://iliaskapouranis.com/).
+It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliaskapouranis.com/2020/07/13/is-single-pass-stereo-worth-it/) and [TBP](https://iliaskapouranis.com/).
 
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
