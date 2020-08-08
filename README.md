@@ -28,7 +28,7 @@ If you are using an HMD that is using asymmetric projections, then you can obser
 
 Entering the *both* method, the left eye is fully covered in red or is fully covered in white but the right eye contains objects with both tints. This happens because the objects in the right eye are not in the exact same location when calculated with Single Pass Stereo.
 
-Below is a capture showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys S and D.
+Below is a capture from a Valve Index showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys S and D.
 
 ![Diff between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Diff between SPS and default rendering for the right eye")
 
