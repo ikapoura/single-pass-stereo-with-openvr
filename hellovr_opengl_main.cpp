@@ -100,13 +100,11 @@ public:
 	void SetupCameras();
 
 	void RenderStereoTargets();
+	void RenderStereoTargetsSPS();
 	void RenderCompanionWindow();
-	void RenderScene( vr::Hmd_Eye nEye );
-#ifdef SPS
-	void RenderScene();
-	void BlitSpsFramebufferLayer( vr::Hmd_Eye nEye );
-#endif // SPS
 
+	void RenderScene( vr::Hmd_Eye nEye );
+	void RenderSceneSPS();
 
 	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
 	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
@@ -117,6 +115,7 @@ public:
 
 	GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
 	bool CreateAllShaders();
+	bool CreateAllShadersSPS();
 
 	CGLRenderModel *FindOrLoadRenderModel( const char *pchRenderModelName );
 
@@ -217,47 +216,53 @@ private: // OpenGL bookkeeping
 		VertexDataWindow( const Vector2 & pos, const Vector2 tex ) :  position(pos), texCoord(tex) {	}
 	};
 
+	GLuint m_unSceneProgramIDSPS;
+	GLuint m_unControllerTransformProgramIDSPS;
+	GLuint m_unRenderModelProgramIDSPS;
+
 	GLuint m_unSceneProgramID;
 	GLuint m_unCompanionWindowProgramID;
 	GLuint m_unControllerTransformProgramID;
 	GLuint m_unRenderModelProgramID;
 
-#ifdef SPS
-	GLint m_nSceneMatrixLocationEyeLeft;
-	GLint m_nSceneMatrixLocationEyeRight;
-	GLint m_nControllerMatrixLocationEyeLeft;
-	GLint m_nControllerMatrixLocationEyeRight;
-	GLint m_nRenderModelMatrixLocationEyeLeft;
-	GLint m_nRenderModelMatrixLocationEyeRight;
-#else
+	GLint m_nSceneMatrixLocationEyeLeftSPS;
+	GLint m_nSceneMatrixLocationEyeRightSPS;
+	GLint m_nControllerMatrixLocationEyeLeftSPS;
+	GLint m_nControllerMatrixLocationEyeRightSPS;
+	GLint m_nRenderModelMatrixLocationEyeLeftSPS;
+	GLint m_nRenderModelMatrixLocationEyeRightSPS;
+
 	GLint m_nSceneMatrixLocation;
 	GLint m_nControllerMatrixLocation;
 	GLint m_nRenderModelMatrixLocation;
-#endif // SPS
 
 	struct FramebufferDesc
 	{
 		GLuint m_nDepthBufferId;
 		GLuint m_nRenderTextureId;
 		GLuint m_nRenderFramebufferId;
-#ifdef SPS
-		GLuint m_nReadFramebufferId;
-		GLuint m_nResolveTextureId[2];
-		GLuint m_nResolveFramebufferId[2];
-#else
 		GLuint m_nResolveTextureId;
 		GLuint m_nResolveFramebufferId;
-#endif // SPS
 	};
-#ifdef SPS
-	FramebufferDesc spsDesc;
-#else
 	FramebufferDesc leftEyeDesc;
 	FramebufferDesc rightEyeDesc;
-#endif // SPS
 
+	struct FramebufferDescSPS
+	{
+		GLuint m_nDepthBufferId;
+		GLuint m_nRenderTextureId;
+		GLuint m_nRenderFramebufferId;
+		GLuint m_nReadFramebufferId; // needed to bind the texture layers for the blit
+		GLuint m_nResolveTextureId[2];
+		GLuint m_nResolveFramebufferId[2];
+	};
+	FramebufferDescSPS spsDesc;
 
 	bool CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
+	bool CreateFrameBufferSPS( int nWidth, int nHeight, FramebufferDescSPS &framebufferDesc );
+
+	void BlitFramebuffer( FramebufferDesc& framebufferDesc );
+	void BlitSpsFramebufferLayerSPS( vr::Hmd_Eye nEye );
 	
 	uint32_t m_nRenderWidth;
 	uint32_t m_nRenderHeight;
@@ -382,12 +387,12 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_unControllerVAO( 0 )
 	, m_unSceneVAO( 0 )
 #ifdef SPS
-	, m_nSceneMatrixLocationEyeLeft( -1 )
-	, m_nSceneMatrixLocationEyeRight( -1 )
-	, m_nControllerMatrixLocationEyeLeft( -1 )
-	, m_nControllerMatrixLocationEyeRight( -1 )
-	, m_nRenderModelMatrixLocationEyeLeft( -1 )
-	, m_nRenderModelMatrixLocationEyeRight( -1 )
+	, m_nSceneMatrixLocationEyeLeftSPS( -1 )
+	, m_nSceneMatrixLocationEyeRightSPS( -1 )
+	, m_nControllerMatrixLocationEyeLeftSPS( -1 )
+	, m_nControllerMatrixLocationEyeRightSPS( -1 )
+	, m_nRenderModelMatrixLocationEyeLeftSPS( -1 )
+	, m_nRenderModelMatrixLocationEyeRightSPS( -1 )
 #else
 	, m_nSceneMatrixLocation( -1 )
 	, m_nControllerMatrixLocation( -1 )
@@ -617,7 +622,7 @@ bool CMainApplication::BInitGL()
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 	}
 
-	if( !CreateAllShaders() )
+	if( !CreateAllShaders() || !CreateAllShadersSPS() )
 		return false;
 
 	SetupTexturemaps();
@@ -691,7 +696,7 @@ void CMainApplication::Shutdown()
 			glDeleteProgram( m_unCompanionWindowProgramID );
 		}
 
-#ifdef SPS
+// -- SPS
 		glDeleteTextures( 1, &spsDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &spsDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &spsDesc.m_nRenderFramebufferId );
@@ -700,7 +705,8 @@ void CMainApplication::Shutdown()
 		glDeleteFramebuffers( 1, &spsDesc.m_nResolveFramebufferId[vr::Eye_Left] );
 		glDeleteTextures( 1, &spsDesc.m_nResolveTextureId[vr::Eye_Right] );
 		glDeleteFramebuffers( 1, &spsDesc.m_nResolveFramebufferId[vr::Eye_Right] );
-#else 
+// /- SPS
+
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &leftEyeDesc.m_nRenderFramebufferId );
@@ -712,7 +718,6 @@ void CMainApplication::Shutdown()
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nRenderFramebufferId );
 		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
-#endif // SPS
 
 		if( m_unCompanionWindowVAO != 0 )
 		{
@@ -897,13 +902,11 @@ void CMainApplication::RenderFrame()
 	if ( m_pHMD )
 	{
 		RenderControllerAxes();
-		RenderStereoTargets();
+		// RenderStereoTargets();
+		RenderStereoTargetsSPS();
 		RenderCompanionWindow();
 
 #ifdef SPS
-		BlitSpsFramebufferLayer(vr::Eye_Left);
-		BlitSpsFramebufferLayer(vr::Eye_Right);
-
 		vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Left], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
 		vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
@@ -1026,28 +1029,9 @@ bool CMainApplication::CreateAllShaders()
 	m_unSceneProgramID = CompileGLShader( 
 		"Scene",
 
-#if defined(STEREO_SPS)
-    //////////// SinglePassStereo ////////////
-    // Single Pass Stereo
-    // - require/enable the extension
-    // - set the secondary view offset to 1
-    //
-#endif
-
 		// Vertex Shader
 		"#version 450\n"
-#ifdef SPS
-		"#extension GL_ARB_shading_language_include : enable\n"
-		"#extension GL_NV_viewport_array2: require\n"
-
-		"#extension GL_NV_stereo_view_rendering: require\n"
-		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
-
-		"uniform mat4 matrixEyeLeft;\n"
-		"uniform mat4 matrixEyeRight;\n"
-#else
 		"uniform mat4 matrix;\n"
-#endif // SPS
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
 		"layout(location = 2) in vec3 v3NormalIn;\n"
@@ -1055,16 +1039,8 @@ bool CMainApplication::CreateAllShaders()
 		"void main()\n"
 		"{\n"
 		"	v2UVcoords = v2UVcoordsIn;\n"
-#ifdef SPS
-		"	gl_Position = matrixEyeLeft * position;\n"
-		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
-		"	gl_Layer = 0;\n"
-#else
 		"	gl_Position = matrix * position;\n"
-#endif // SPS
-
 		"}\n",
-		// TODO (i.kapouranis): add the gl_SecondaryPositionNV
 
 		// Fragment Shader
 		"#version 450 core\n"
@@ -1076,58 +1052,26 @@ bool CMainApplication::CreateAllShaders()
 		"   outputColor = texture(mytexture, v2UVcoords);\n"
 		"}\n"
 		);
-#ifdef SPS
-	m_nSceneMatrixLocationEyeLeft = glGetUniformLocation( m_unSceneProgramID, "matrixEyeLeft" );
-	m_nSceneMatrixLocationEyeRight = glGetUniformLocation( m_unSceneProgramID, "matrixEyeRight" );
-	if( m_nSceneMatrixLocationEyeLeft == -1 )
-	{
-		dprintf( "Unable to find left eye matrix uniform in scene shader\n" );
-		return false;
-	}
-	if( m_nSceneMatrixLocationEyeRight == -1 )
-	{
-		dprintf( "Unable to find right eye matrix uniform in scene shader\n" );
-		return false;
-	}
-#else
 	m_nSceneMatrixLocation = glGetUniformLocation( m_unSceneProgramID, "matrix" );
 	if( m_nSceneMatrixLocation == -1 )
 	{
 		dprintf( "Unable to find matrix uniform in scene shader\n" );
 		return false;
 	}
-#endif // SPS
 
 	m_unControllerTransformProgramID = CompileGLShader(
 		"Controller",
 
 		// vertex shader
 		"#version 450\n"
-#ifdef SPS
-		"#extension GL_ARB_shading_language_include : enable\n"
-		"#extension GL_NV_viewport_array2: require\n"
-
-		"#extension GL_NV_stereo_view_rendering: require\n"
-		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
-
-		"uniform mat4 matrixEyeLeft;\n"
-		"uniform mat4 matrixEyeRight;\n"
-#else
 		"uniform mat4 matrix;\n"
-#endif // SPS
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec3 v3ColorIn;\n"
 		"out vec4 v4Color;\n"
 		"void main()\n"
 		"{\n"
 		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-#ifdef SPS
-		"	gl_Position = matrixEyeLeft * position;\n"
-		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
-		"	gl_Layer = 0;\n"
-#else
 		"	gl_Position = matrix * position;\n"
-#endif // SPS
 		"}\n",
 
 		// fragment shader
@@ -1139,46 +1083,19 @@ bool CMainApplication::CreateAllShaders()
 		"   outputColor = v4Color;\n"
 		"}\n"
 		);
-#ifdef SPS
-	m_nControllerMatrixLocationEyeLeft = glGetUniformLocation( m_unControllerTransformProgramID, "matrixEyeLeft" );
-	if( m_nControllerMatrixLocationEyeLeft == -1 )
-	{
-		dprintf( "Unable to find left eye matrix uniform in controller shader\n" );
-		return false;
-	}
-	m_nControllerMatrixLocationEyeRight = glGetUniformLocation( m_unControllerTransformProgramID, "matrixEyeRight" );
-	if( m_nControllerMatrixLocationEyeRight == -1 )
-	{
-		dprintf( "Unable to find right eye matrix uniform in controller shader\n" );
-		return false;
-	}
-#else
 	m_nControllerMatrixLocation = glGetUniformLocation( m_unControllerTransformProgramID, "matrix" );
 	if( m_nControllerMatrixLocation == -1 )
 	{
 		dprintf( "Unable to find matrix uniform in controller shader\n" );
 		return false;
 	}
-#endif // SPS
-
 
 	m_unRenderModelProgramID = CompileGLShader( 
 		"render model",
 
 		// vertex shader
 		"#version 450\n"
-#ifdef SPS
-		"#extension GL_ARB_shading_language_include : enable\n"
-		"#extension GL_NV_viewport_array2: require\n"
-
-		"#extension GL_NV_stereo_view_rendering: require\n"
-		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
-
-		"uniform mat4 matrixEyeLeft;\n"
-		"uniform mat4 matrixEyeRight;\n"
-#else
 		"uniform mat4 matrix;\n"
-#endif // SPS
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec3 v3NormalIn;\n"
 		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
@@ -1186,13 +1103,7 @@ bool CMainApplication::CreateAllShaders()
 		"void main()\n"
 		"{\n"
 		"	v2TexCoord = v2TexCoordsIn;\n"
-#ifdef SPS
-		"	gl_Position = matrixEyeLeft * position;\n"
-		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
-		"	gl_Layer = 0;\n"
-#else
 		"	gl_Position = matrix * position;\n"
-#endif // SPS
 		"}\n",
 
 		//fragment shader
@@ -1206,27 +1117,12 @@ bool CMainApplication::CreateAllShaders()
 		"}\n"
 
 		);
-#ifdef SPS
-	m_nRenderModelMatrixLocationEyeLeft = glGetUniformLocation( m_unRenderModelProgramID, "matrixEyeLeft" );
-	if( m_nRenderModelMatrixLocationEyeLeft == -1 )
-	{
-		dprintf( "Unable to find left eye matrix uniform in render model shader\n" );
-		return false;
-	}
-	m_nRenderModelMatrixLocationEyeRight = glGetUniformLocation( m_unRenderModelProgramID, "matrixEyeRight" );
-	if( m_nRenderModelMatrixLocationEyeRight == -1 )
-	{
-		dprintf( "Unable to find right eye matrix uniform in render model shader\n" );
-		return false;
-	}
-#else
 	m_nRenderModelMatrixLocation = glGetUniformLocation( m_unRenderModelProgramID, "matrix" );
 	if( m_nRenderModelMatrixLocation == -1 )
 	{
 		dprintf( "Unable to find matrix uniform in render model shader\n" );
 		return false;
 	}
-#endif // SPS
 
 	m_unCompanionWindowProgramID = CompileGLShader(
 		"CompanionWindow",
@@ -1257,6 +1153,162 @@ bool CMainApplication::CreateAllShaders()
 		&& m_unControllerTransformProgramID != 0
 		&& m_unRenderModelProgramID != 0
 		&& m_unCompanionWindowProgramID != 0;
+}
+
+bool CMainApplication::CreateAllShadersSPS()
+{
+	m_unSceneProgramIDSPS = CompileGLShader( 
+		"Scene",
+
+		// Vertex Shader
+		"#version 450\n"
+		"#extension GL_ARB_shading_language_include : enable\n"
+		"#extension GL_NV_viewport_array2: require\n"
+
+		"#extension GL_NV_stereo_view_rendering: require\n"
+		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
+
+		"uniform mat4 matrixEyeLeft;\n"
+		"uniform mat4 matrixEyeRight;\n"
+
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
+		"layout(location = 2) in vec3 v3NormalIn;\n"
+		"out vec2 v2UVcoords;\n"
+		"void main()\n"
+		"{\n"
+		"	v2UVcoords = v2UVcoordsIn;\n"
+		"	gl_Position = matrixEyeLeft * position;\n"
+		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
+		"	gl_Layer = 0;\n"
+
+		"}\n",
+
+		// Fragment Shader
+		"#version 450 core\n"
+		"uniform sampler2D mytexture;\n"
+		"in vec2 v2UVcoords;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = texture(mytexture, v2UVcoords);\n"
+		"}\n"
+		);
+
+	m_nSceneMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unSceneProgramIDSPS, "matrixEyeLeft" );
+	m_nSceneMatrixLocationEyeRightSPS = glGetUniformLocation( m_unSceneProgramIDSPS, "matrixEyeRight" );
+	if( m_nSceneMatrixLocationEyeLeftSPS == -1 )
+	{
+		dprintf( "Unable to find SPS left eye matrix uniform in scene shader\n" );
+		return false;
+	}
+	if( m_nSceneMatrixLocationEyeRightSPS == -1 )
+	{
+		dprintf( "Unable to find SPS right eye matrix uniform in scene shader\n" );
+		return false;
+	}
+
+	m_unControllerTransformProgramIDSPS = CompileGLShader(
+		"Controller",
+
+		// vertex shader
+		"#version 450\n"
+		"#extension GL_ARB_shading_language_include : enable\n"
+		"#extension GL_NV_viewport_array2: require\n"
+
+		"#extension GL_NV_stereo_view_rendering: require\n"
+		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
+
+		"uniform mat4 matrixEyeLeft;\n"
+		"uniform mat4 matrixEyeRight;\n"
+
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec3 v3ColorIn;\n"
+		"out vec4 v4Color;\n"
+		"void main()\n"
+		"{\n"
+		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
+		"	gl_Position = matrixEyeLeft * position;\n"
+		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
+		"	gl_Layer = 0;\n"
+		"}\n",
+
+		// fragment shader
+		"#version 450\n"
+		"in vec4 v4Color;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = v4Color;\n"
+		"}\n"
+		);
+	m_nControllerMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "matrixEyeLeft" );
+	if( m_nControllerMatrixLocationEyeLeftSPS == -1 )
+	{
+		dprintf( "Unable to find SPS left eye matrix uniform in controller shader\n" );
+		return false;
+	}
+	m_nControllerMatrixLocationEyeRightSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "matrixEyeRight" );
+	if( m_nControllerMatrixLocationEyeRightSPS  == -1 )
+	{
+		dprintf( "Unable to find SPS right eye matrix uniform in controller shader\n" );
+		return false;
+	}
+
+
+	m_unRenderModelProgramIDSPS = CompileGLShader( 
+		"render model",
+
+		// vertex shader
+		"#version 450\n"
+		"#extension GL_ARB_shading_language_include : enable\n"
+		"#extension GL_NV_viewport_array2: require\n"
+
+		"#extension GL_NV_stereo_view_rendering: require\n"
+		"layout(secondary_view_offset=1) out highp int gl_Layer;\n"
+
+		"uniform mat4 matrixEyeLeft;\n"
+		"uniform mat4 matrixEyeRight;\n"
+
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec3 v3NormalIn;\n"
+		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
+		"out vec2 v2TexCoord;\n"
+		"void main()\n"
+		"{\n"
+		"	v2TexCoord = v2TexCoordsIn;\n"
+		"	gl_Position = matrixEyeLeft * position;\n"
+		"	gl_SecondaryPositionNV = matrixEyeRight * position;\n"
+		"	gl_Layer = 0;\n"
+		"}\n",
+
+		//fragment shader
+		"#version 450 core\n"
+		"uniform sampler2D diffuse;\n"
+		"in vec2 v2TexCoord;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = texture( diffuse, v2TexCoord);\n"
+		"}\n"
+
+		);
+	m_nRenderModelMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "matrixEyeLeft" );
+	if( m_nRenderModelMatrixLocationEyeLeftSPS == -1 )
+	{
+		dprintf( "Unable to find SPS left eye matrix uniform in render model shader\n" );
+		return false;
+	}
+	m_nRenderModelMatrixLocationEyeRightSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "matrixEyeRight" );
+	if( m_nRenderModelMatrixLocationEyeRightSPS == -1 )
+	{
+		dprintf( "Unable to find SPS right eye matrix uniform in render model shader\n" );
+		return false;
+	}
+
+	return m_unSceneProgramIDSPS != 0
+		&& m_unControllerTransformProgramIDSPS != 0
+		&& m_unRenderModelProgramIDSPS != 0;
 }
 
 
@@ -1546,7 +1598,43 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId );
 	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
 
-#ifdef SPS
+	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
+	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, nWidth, nHeight );
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,	framebufferDesc.m_nDepthBufferId );
+
+	glGenTextures(1, &framebufferDesc.m_nRenderTextureId );
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId );
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, nWidth, nHeight, true);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
+
+	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId );
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
+
+	glGenTextures(1, &framebufferDesc.m_nResolveTextureId );
+	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
+
+	// check FBO status
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		return false;
+	}
+
+	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	return true;
+}
+
+bool CMainApplication::CreateFrameBufferSPS( int nWidth, int nHeight, FramebufferDescSPS &framebufferDesc )
+{
+	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId );
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
+
 	glGenTextures(1, &framebufferDesc.m_nDepthBufferId);
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, framebufferDesc.m_nDepthBufferId);
 	glTexImage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, 4, GL_DEPTH_COMPONENT24, nWidth, nHeight, 2, GL_FALSE);
@@ -1575,27 +1663,6 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId[vr::Eye_Right], 0);
-#else
-	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, nWidth, nHeight );
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,	framebufferDesc.m_nDepthBufferId );
-
-	glGenTextures(1, &framebufferDesc.m_nRenderTextureId );
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId );
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, nWidth, nHeight, true);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
-
-	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId );
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
-
-	glGenTextures(1, &framebufferDesc.m_nResolveTextureId );
-	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
-#endif
 
 	// check FBO status
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -1620,12 +1687,10 @@ bool CMainApplication::SetupStereoRenderTargets()
 
 	m_pHMD->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
 
-#ifdef SPS
-	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, spsDesc );
-#else
+	CreateFrameBufferSPS( m_nRenderWidth, m_nRenderHeight, spsDesc );
+
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, leftEyeDesc );
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, rightEyeDesc );
-#endif // SPS
 	
 	return true;
 }
@@ -1688,19 +1753,6 @@ void CMainApplication::SetupCompanionWindow()
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderStereoTargets()
 {
-#ifdef SPS
-	glEnable( GL_MULTISAMPLE );
-
-	// Left Eye
-	glBindFramebuffer( GL_FRAMEBUFFER, spsDesc.m_nRenderFramebufferId );
-    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0);
-    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_DEPTH_ATTACHMENT, spsDesc.m_nDepthBufferId, 0);
- 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
-	RenderScene();
- 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-	
-	glDisable( GL_MULTISAMPLE );
-#else
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	glEnable( GL_MULTISAMPLE );
 
@@ -1712,16 +1764,6 @@ void CMainApplication::RenderStereoTargets()
 	
 	glDisable( GL_MULTISAMPLE );
 	 	
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId );
-
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, 
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );	
-
 	glEnable( GL_MULTISAMPLE );
 
 	// Right Eye
@@ -1732,32 +1774,75 @@ void CMainApplication::RenderStereoTargets()
  	
 	glDisable( GL_MULTISAMPLE );
 
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId );
-	
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, 
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR  );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
-#endif // SPS
+	BlitFramebuffer(leftEyeDesc);
+	BlitFramebuffer(rightEyeDesc);
 }
 
-#ifdef SPS
+void CMainApplication::RenderStereoTargetsSPS()
+{
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	glEnable( GL_MULTISAMPLE );
+
+	// Left Eye
+	glBindFramebuffer( GL_FRAMEBUFFER, spsDesc.m_nRenderFramebufferId );
+    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0);
+    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_DEPTH_ATTACHMENT, spsDesc.m_nDepthBufferId, 0);
+ 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+	RenderSceneSPS();
+ 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	
+	glDisable( GL_MULTISAMPLE );
+
+	BlitSpsFramebufferLayerSPS(vr::Eye_Left);
+	BlitSpsFramebufferLayerSPS(vr::Eye_Right);
+}
+
+
 //-----------------------------------------------------------------------------
-// Purpose: Renders a scene with respect to nEye.
+// Purpose: Blits the corresponding eye texture from the texture array
 //-----------------------------------------------------------------------------
-void CMainApplication::RenderScene()
+void CMainApplication::BlitFramebuffer( FramebufferDesc& framebufferDesc )
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
+
+	glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
+		GL_COLOR_BUFFER_BIT,
+		GL_LINEAR);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
+void CMainApplication::BlitSpsFramebufferLayerSPS( vr::Hmd_Eye nEye )
+{
+ 	glBindFramebuffer(GL_READ_FRAMEBUFFER, spsDesc.m_nReadFramebufferId);
+    glNamedFramebufferTextureLayer(spsDesc.m_nReadFramebufferId, GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0, nEye);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, spsDesc.m_nResolveFramebufferId[nEye] );
+
+    glBlitFramebuffer(
+		0, 0, m_nRenderWidth, m_nRenderHeight,
+		0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+ 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );	
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Renders a scene in Single Pass Stereo mode.
+//-----------------------------------------------------------------------------
+void CMainApplication::RenderSceneSPS()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
 	if( m_bShowCubes )
 	{
-		glUseProgram( m_unSceneProgramID );
-		glUniformMatrix4fv( m_nSceneMatrixLocationEyeLeft,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
-		glUniformMatrix4fv( m_nSceneMatrixLocationEyeRight, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUseProgram( m_unSceneProgramIDSPS );
+		glUniformMatrix4fv( m_nSceneMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
+		glUniformMatrix4fv( m_nSceneMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
 		glBindVertexArray( m_unSceneVAO );
 		glBindTexture( GL_TEXTURE_2D, m_iTexture );
 		glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
@@ -1769,16 +1854,16 @@ void CMainApplication::RenderScene()
 	if( bIsInputAvailable )
 	{
 		// draw the controller axis lines
-		glUseProgram( m_unControllerTransformProgramID );
-		glUniformMatrix4fv( m_nControllerMatrixLocationEyeLeft,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
-		glUniformMatrix4fv( m_nControllerMatrixLocationEyeRight, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUseProgram( m_unControllerTransformProgramIDSPS );
+		glUniformMatrix4fv( m_nControllerMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
+		glUniformMatrix4fv( m_nControllerMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
 		glBindVertexArray( m_unControllerVAO );
 		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
 		glBindVertexArray( 0 );
 	}
 
 	// ----- Render Model rendering -----
-	glUseProgram( m_unRenderModelProgramID );
+	glUseProgram( m_unRenderModelProgramIDSPS );
 
 	for ( EHand eHand = Left; eHand <= Right; ((int&)eHand)++ )
 	{
@@ -1787,35 +1872,15 @@ void CMainApplication::RenderScene()
 
 		const Matrix4 & matDeviceToTracking = m_rHand[eHand].m_rmat4Pose;
 		Matrix4 matMVPEyeLeft = GetCurrentViewProjectionMatrix( vr::Eye_Left ) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeLeft, 1, GL_FALSE, matMVPEyeLeft.get() );
+		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeLeftSPS, 1, GL_FALSE, matMVPEyeLeft.get() );
 		Matrix4 matMVPEyeRight = GetCurrentViewProjectionMatrix( vr::Eye_Right ) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeRight, 1, GL_FALSE, matMVPEyeRight.get() );
+		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeRightSPS, 1, GL_FALSE, matMVPEyeRight.get() );
 
 		m_rHand[eHand].m_pRenderModel->Draw();
 	}
 
 	glUseProgram( 0 );
 }
-
-//-----------------------------------------------------------------------------
-// Purpose: Blits the corresponding eye texture from the texture array
-//-----------------------------------------------------------------------------
-void CMainApplication::BlitSpsFramebufferLayer( vr::Hmd_Eye nEye )
-{
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, spsDesc.m_nReadFramebufferId);
-    glNamedFramebufferTextureLayer(spsDesc.m_nReadFramebufferId, GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0, nEye);
-
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, spsDesc.m_nResolveFramebufferId[nEye] );
-
-    glBlitFramebuffer(
-      0, 0, m_nRenderWidth, m_nRenderHeight,
-      0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-      // 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );	
-}
-#else
 
 //-----------------------------------------------------------------------------
 // Purpose: Renders a scene with respect to nEye.
@@ -1864,7 +1929,6 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 
 	glUseProgram( 0 );
 }
-#endif
 
 
 
