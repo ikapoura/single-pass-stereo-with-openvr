@@ -227,10 +227,13 @@ private: // OpenGL bookkeeping
 
 	GLint m_nSceneMatrixLocationEyeLeftSPS;
 	GLint m_nSceneMatrixLocationEyeRightSPS;
+	GLint m_nSceneCombinedModeLocationSPS;
 	GLint m_nControllerMatrixLocationEyeLeftSPS;
 	GLint m_nControllerMatrixLocationEyeRightSPS;
+	GLint m_nControllerCombinedModeLocationSPS;
 	GLint m_nRenderModelMatrixLocationEyeLeftSPS;
 	GLint m_nRenderModelMatrixLocationEyeRightSPS;
+	GLint m_nRenderModelCombinedModeLocationSPS;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nControllerMatrixLocation;
@@ -252,6 +255,7 @@ private: // OpenGL bookkeeping
 		GLuint m_nDepthBufferId;
 		GLuint m_nRenderTextureId;
 		GLuint m_nRenderFramebufferId;
+		GLuint m_nCombinedFramebufferId[2]; // framebuffer where we will render each layer separately
 		GLuint m_nReadFramebufferId; // needed to bind the texture layers for the blit
 		GLuint m_nResolveTextureId[2];
 		GLuint m_nResolveFramebufferId[2];
@@ -275,6 +279,9 @@ private: // OpenGL bookkeeping
 	vr::VRActionHandle_t m_actionAnalongInput = vr::k_ulInvalidActionHandle;
 
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
+
+	bool m_bDefaultEnabled;
+	bool m_bSpsEnabled;
 };
 
 
@@ -405,6 +412,8 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_iSceneVolumeInit( 20 )
 	, m_strPoseClasses("")
 	, m_bShowCubes( true )
+	, m_bDefaultEnabled( true )
+	, m_bSpsEnabled( false )
 {
 
 	for( int i = 1; i < argc; i++ )
@@ -700,11 +709,10 @@ void CMainApplication::Shutdown()
 		glDeleteTextures( 1, &spsDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &spsDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &spsDesc.m_nRenderFramebufferId );
+		glDeleteFramebuffers( 2, spsDesc.m_nCombinedFramebufferId );
 		glDeleteFramebuffers( 1, &spsDesc.m_nReadFramebufferId);
-		glDeleteTextures( 1, &spsDesc.m_nResolveTextureId[vr::Eye_Left] );
-		glDeleteFramebuffers( 1, &spsDesc.m_nResolveFramebufferId[vr::Eye_Left] );
-		glDeleteTextures( 1, &spsDesc.m_nResolveTextureId[vr::Eye_Right] );
-		glDeleteFramebuffers( 1, &spsDesc.m_nResolveFramebufferId[vr::Eye_Right] );
+		glDeleteTextures( 2, spsDesc.m_nResolveTextureId );
+		glDeleteFramebuffers( 2, spsDesc.m_nResolveFramebufferId );
 // /- SPS
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
@@ -766,6 +774,19 @@ bool CMainApplication::HandleInput()
 			if( sdlEvent.key.keysym.sym == SDLK_c )
 			{
 				m_bShowCubes = !m_bShowCubes;
+			}
+			if( sdlEvent.key.keysym.sym == SDLK_a )
+			{
+				m_bDefaultEnabled = true;
+				m_bSpsEnabled = true;
+			}
+			if( sdlEvent.key.keysym.sym == SDLK_s )
+			{
+				m_bSpsEnabled = !m_bSpsEnabled;
+			}
+			if( sdlEvent.key.keysym.sym == SDLK_d )
+			{
+				m_bDefaultEnabled = !m_bDefaultEnabled;
 			}
 		}
 	}
@@ -880,14 +901,10 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 	switch( event.eventType )
 	{
 	case vr::VREvent_TrackedDeviceDeactivated:
-		{
-			dprintf( "Device %u detached.\n", event.trackedDeviceIndex );
-		}
+		dprintf("Device %u detached.\n", event.trackedDeviceIndex);
 		break;
 	case vr::VREvent_TrackedDeviceUpdated:
-		{
-			dprintf( "Device %u updated.\n", event.trackedDeviceIndex );
-		}
+		dprintf("Device %u updated.\n", event.trackedDeviceIndex);
 		break;
 	}
 }
@@ -902,22 +919,50 @@ void CMainApplication::RenderFrame()
 	if ( m_pHMD )
 	{
 		RenderControllerAxes();
-		// RenderStereoTargets();
-		RenderStereoTargetsSPS();
+
+		if (m_bSpsEnabled)
+		{
+			if (m_bDefaultEnabled)
+			{
+				RenderStereoTargetsSPS();
+			}
+			else
+			{
+				RenderStereoTargetsSPS();
+			}
+		}
+		else if (m_bDefaultEnabled)
+		{
+			RenderStereoTargets();
+		}
+
+		if (m_bSpsEnabled)
+		{
+			BlitSpsFramebufferLayerSPS(vr::Eye_Left);
+			BlitSpsFramebufferLayerSPS(vr::Eye_Right);
+
+			vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Left], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
+			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+		}
+		else
+		{
+			// If SPS is not enabled, we will need to submit textures for the eyes. The textures will
+			// only have color of the default rendering is enabled, otherwise they will be blank.
+			if (m_bDefaultEnabled)
+			{
+				BlitFramebuffer(leftEyeDesc);
+				BlitFramebuffer(rightEyeDesc);
+			}
+
+			vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
+			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+		}
+
 		RenderCompanionWindow();
-
-#ifdef SPS
-		vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Left], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
-		vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
-#else
-		vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
-		vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
-#endif // SPS
-
 	}
 
 	if ( m_bVblank && m_bGlFinishHack )
@@ -1030,7 +1075,7 @@ bool CMainApplication::CreateAllShaders()
 		"Scene",
 
 		// Vertex Shader
-		"#version 450\n"
+		"#version 410\n"
 		"uniform mat4 matrix;\n"
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
@@ -1043,7 +1088,7 @@ bool CMainApplication::CreateAllShaders()
 		"}\n",
 
 		// Fragment Shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"uniform sampler2D mytexture;\n"
 		"in vec2 v2UVcoords;\n"
 		"out vec4 outputColor;\n"
@@ -1063,7 +1108,7 @@ bool CMainApplication::CreateAllShaders()
 		"Controller",
 
 		// vertex shader
-		"#version 450\n"
+		"#version 410\n"
 		"uniform mat4 matrix;\n"
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec3 v3ColorIn;\n"
@@ -1075,7 +1120,7 @@ bool CMainApplication::CreateAllShaders()
 		"}\n",
 
 		// fragment shader
-		"#version 450\n"
+		"#version 410\n"
 		"in vec4 v4Color;\n"
 		"out vec4 outputColor;\n"
 		"void main()\n"
@@ -1094,7 +1139,7 @@ bool CMainApplication::CreateAllShaders()
 		"render model",
 
 		// vertex shader
-		"#version 450\n"
+		"#version 410\n"
 		"uniform mat4 matrix;\n"
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec3 v3NormalIn;\n"
@@ -1107,7 +1152,7 @@ bool CMainApplication::CreateAllShaders()
 		"}\n",
 
 		//fragment shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"uniform sampler2D diffuse;\n"
 		"in vec2 v2TexCoord;\n"
 		"out vec4 outputColor;\n"
@@ -1128,7 +1173,7 @@ bool CMainApplication::CreateAllShaders()
 		"CompanionWindow",
 
 		// vertex shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"layout(location = 0) in vec4 position;\n"
 		"layout(location = 1) in vec2 v2UVIn;\n"
 		"noperspective out vec2 v2UV;\n"
@@ -1139,7 +1184,7 @@ bool CMainApplication::CreateAllShaders()
 		"}\n",
 
 		// fragment shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"uniform sampler2D mytexture;\n"
 		"noperspective in vec2 v2UV;\n"
 		"out vec4 outputColor;\n"
@@ -1157,11 +1202,11 @@ bool CMainApplication::CreateAllShaders()
 
 bool CMainApplication::CreateAllShadersSPS()
 {
-	m_unSceneProgramIDSPS = CompileGLShader( 
+	m_unSceneProgramIDSPS = CompileGLShader(
 		"Scene",
 
 		// Vertex Shader
-		"#version 450\n"
+		"#version 410\n"
 		"#extension GL_ARB_shading_language_include : enable\n"
 		"#extension GL_NV_viewport_array2: require\n"
 
@@ -1185,18 +1230,23 @@ bool CMainApplication::CreateAllShadersSPS()
 		"}\n",
 
 		// Fragment Shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"uniform sampler2D mytexture;\n"
+		"uniform bool combinedMode;\n"
 		"in vec2 v2UVcoords;\n"
 		"out vec4 outputColor;\n"
 		"void main()\n"
 		"{\n"
 		"   outputColor = texture(mytexture, v2UVcoords);\n"
+		"	if (combinedMode) {\n"
+		"		outputColor *= vec4(1.0f, 0.5f, 0.5f, 1.0f);\n"
+		"	}\n"
 		"}\n"
 		);
 
 	m_nSceneMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unSceneProgramIDSPS, "matrixEyeLeft" );
 	m_nSceneMatrixLocationEyeRightSPS = glGetUniformLocation( m_unSceneProgramIDSPS, "matrixEyeRight" );
+	m_nSceneCombinedModeLocationSPS = glGetUniformLocation( m_unSceneProgramIDSPS, "combinedMode" );
 	if( m_nSceneMatrixLocationEyeLeftSPS == -1 )
 	{
 		dprintf( "Unable to find SPS left eye matrix uniform in scene shader\n" );
@@ -1212,7 +1262,7 @@ bool CMainApplication::CreateAllShadersSPS()
 		"Controller",
 
 		// vertex shader
-		"#version 450\n"
+		"#version 410\n"
 		"#extension GL_ARB_shading_language_include : enable\n"
 		"#extension GL_NV_viewport_array2: require\n"
 
@@ -1234,21 +1284,26 @@ bool CMainApplication::CreateAllShadersSPS()
 		"}\n",
 
 		// fragment shader
-		"#version 450\n"
+		"#version 410\n"
+		"uniform bool combinedMode;\n"
 		"in vec4 v4Color;\n"
 		"out vec4 outputColor;\n"
 		"void main()\n"
 		"{\n"
 		"   outputColor = v4Color;\n"
+		"	if (combinedMode) {\n"
+		"		outputColor *= vec4(1.0f, 0.5f, 0.5f, 1.0f);\n"
+		"	}\n"
 		"}\n"
 		);
 	m_nControllerMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "matrixEyeLeft" );
+	m_nControllerMatrixLocationEyeRightSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "matrixEyeRight" );
+	m_nControllerCombinedModeLocationSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "combinedMode" );
 	if( m_nControllerMatrixLocationEyeLeftSPS == -1 )
 	{
 		dprintf( "Unable to find SPS left eye matrix uniform in controller shader\n" );
 		return false;
 	}
-	m_nControllerMatrixLocationEyeRightSPS = glGetUniformLocation( m_unControllerTransformProgramIDSPS, "matrixEyeRight" );
 	if( m_nControllerMatrixLocationEyeRightSPS  == -1 )
 	{
 		dprintf( "Unable to find SPS right eye matrix uniform in controller shader\n" );
@@ -1260,7 +1315,7 @@ bool CMainApplication::CreateAllShadersSPS()
 		"render model",
 
 		// vertex shader
-		"#version 450\n"
+		"#version 410\n"
 		"#extension GL_ARB_shading_language_include : enable\n"
 		"#extension GL_NV_viewport_array2: require\n"
 
@@ -1283,23 +1338,28 @@ bool CMainApplication::CreateAllShadersSPS()
 		"}\n",
 
 		//fragment shader
-		"#version 450 core\n"
+		"#version 410 core\n"
 		"uniform sampler2D diffuse;\n"
+		"uniform bool combinedMode;\n"
 		"in vec2 v2TexCoord;\n"
 		"out vec4 outputColor;\n"
 		"void main()\n"
 		"{\n"
 		"   outputColor = texture( diffuse, v2TexCoord);\n"
+		"	if (combinedMode) {\n"
+		"		outputColor *= vec4(1.0f, 0.5f, 0.5f, 1.0f);\n"
+		"	}\n"
 		"}\n"
 
 		);
 	m_nRenderModelMatrixLocationEyeLeftSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "matrixEyeLeft" );
+	m_nRenderModelMatrixLocationEyeRightSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "matrixEyeRight" );
+	m_nRenderModelCombinedModeLocationSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "combinedMode" );
 	if( m_nRenderModelMatrixLocationEyeLeftSPS == -1 )
 	{
 		dprintf( "Unable to find SPS left eye matrix uniform in render model shader\n" );
 		return false;
 	}
-	m_nRenderModelMatrixLocationEyeRightSPS = glGetUniformLocation( m_unRenderModelProgramIDSPS, "matrixEyeRight" );
 	if( m_nRenderModelMatrixLocationEyeRightSPS == -1 )
 	{
 		dprintf( "Unable to find SPS right eye matrix uniform in render model shader\n" );
@@ -1647,6 +1707,8 @@ bool CMainApplication::CreateFrameBufferSPS( int nWidth, int nHeight, Framebuffe
 
 	glGenFramebuffers(1, &framebufferDesc.m_nReadFramebufferId );
 
+	glGenFramebuffers(2, framebufferDesc.m_nCombinedFramebufferId );
+
 	glGenFramebuffers(2, framebufferDesc.m_nResolveFramebufferId );
 	glGenTextures(2, framebufferDesc.m_nResolveTextureId );
 
@@ -1761,10 +1823,6 @@ void CMainApplication::RenderStereoTargets()
  	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
  	RenderScene( vr::Eye_Left );
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-	
-	glDisable( GL_MULTISAMPLE );
-	 	
-	glEnable( GL_MULTISAMPLE );
 
 	// Right Eye
 	glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
@@ -1773,9 +1831,6 @@ void CMainApplication::RenderStereoTargets()
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
  	
 	glDisable( GL_MULTISAMPLE );
-
-	BlitFramebuffer(leftEyeDesc);
-	BlitFramebuffer(rightEyeDesc);
 }
 
 void CMainApplication::RenderStereoTargetsSPS()
@@ -1792,9 +1847,6 @@ void CMainApplication::RenderStereoTargetsSPS()
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	
 	glDisable( GL_MULTISAMPLE );
-
-	BlitSpsFramebufferLayerSPS(vr::Eye_Left);
-	BlitSpsFramebufferLayerSPS(vr::Eye_Right);
 }
 
 
@@ -1843,6 +1895,7 @@ void CMainApplication::RenderSceneSPS()
 		glUseProgram( m_unSceneProgramIDSPS );
 		glUniformMatrix4fv( m_nSceneMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
 		glUniformMatrix4fv( m_nSceneMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUniform1i( m_nSceneCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
 		glBindVertexArray( m_unSceneVAO );
 		glBindTexture( GL_TEXTURE_2D, m_iTexture );
 		glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
@@ -1857,6 +1910,7 @@ void CMainApplication::RenderSceneSPS()
 		glUseProgram( m_unControllerTransformProgramIDSPS );
 		glUniformMatrix4fv( m_nControllerMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
 		glUniformMatrix4fv( m_nControllerMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUniform1i( m_nControllerCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
 		glBindVertexArray( m_unControllerVAO );
 		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
 		glBindVertexArray( 0 );
@@ -1875,6 +1929,7 @@ void CMainApplication::RenderSceneSPS()
 		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeLeftSPS, 1, GL_FALSE, matMVPEyeLeft.get() );
 		Matrix4 matMVPEyeRight = GetCurrentViewProjectionMatrix( vr::Eye_Right ) * matDeviceToTracking;
 		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeRightSPS, 1, GL_FALSE, matMVPEyeRight.get() );
+		glUniform1i( m_nRenderModelCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
 
 		m_rHand[eHand].m_pRenderModel->Draw();
 	}
@@ -1944,11 +1999,13 @@ void CMainApplication::RenderCompanionWindow()
 	glUseProgram( m_unCompanionWindowProgramID );
 
 	// render left eye (first half of index array )
-#ifdef SPS
-	glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Left] );
-#else
-	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
-#endif // SPS
+	if (m_bSpsEnabled) {
+		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Left] );
+	}
+	else
+	{
+		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
+	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
@@ -1956,11 +2013,14 @@ void CMainApplication::RenderCompanionWindow()
 	glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
 
 	// render right eye(second half of index array)
-#ifdef SPS
-	glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Right] );
-#else
-	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId );
-#endif // SPS
+	if (m_bSpsEnabled)
+	{
+		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Right] );
+	}
+	else
+	{
+		glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId );
+	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
