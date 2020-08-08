@@ -34,8 +34,6 @@
 #define _countof(x) (sizeof(x)/sizeof((x)[0]))
 #endif
 
-#define SPS
-
 void ThreadSleep( unsigned long nMilliseconds )
 {
 #if defined(_WIN32)
@@ -106,7 +104,6 @@ public:
 
 	void RenderScene( vr::Hmd_Eye nEye );
 	void RenderSceneSPS();
-	void RenderSceneCombined();
 
 	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
 	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
@@ -708,7 +705,6 @@ void CMainApplication::Shutdown()
 			glDeleteProgram( m_unCompanionWindowProgramID );
 		}
 
-// -- SPS
 		glDeleteTextures( 1, &spsDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &spsDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &spsDesc.m_nRenderFramebufferId );
@@ -716,7 +712,6 @@ void CMainApplication::Shutdown()
 		glDeleteFramebuffers( 1, &spsDesc.m_nReadFramebufferId);
 		glDeleteTextures( 2, spsDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 2, spsDesc.m_nResolveFramebufferId );
-// /- SPS
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
