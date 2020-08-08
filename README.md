@@ -3,14 +3,14 @@
 ## What this project is
 The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes.
 
-This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR(SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
+This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR (SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
 
 It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliaskapouranis.com/2020/07/13/is-single-pass-stereo-worth-it/) and [Single Pass Stereo: possibly dangerous for the eyes?](https://iliaskapouranis.com/).
  
 ## How to build
-1. Download the [OpenVR SDK)](https://github.com/ValveSoftware/openvr).
+1. Download the [OpenVR SDK](https://github.com/ValveSoftware/openvr).
 2. Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.
-3. Replace the file **hellovr_opengl_main.cpp** with the [file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).
+3. Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).
 4. Build and run the application in either Debug or Release.
 
 ## Functionality
