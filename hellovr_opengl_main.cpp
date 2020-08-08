@@ -101,10 +101,12 @@ public:
 
 	void RenderStereoTargets();
 	void RenderStereoTargetsSPS();
+	void RenderStereoTargetsCombined();
 	void RenderCompanionWindow();
 
 	void RenderScene( vr::Hmd_Eye nEye );
 	void RenderSceneSPS();
+	void RenderSceneCombined();
 
 	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
 	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
@@ -280,8 +282,13 @@ private: // OpenGL bookkeeping
 
 	vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;
 
-	bool m_bDefaultEnabled;
-	bool m_bSpsEnabled;
+	enum class RenderMode
+	{
+		Sps = 0,
+		Default,
+		Combined
+	};
+	RenderMode m_currentMode;
 };
 
 
@@ -393,18 +400,15 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_glControllerVertBuffer( 0 )
 	, m_unControllerVAO( 0 )
 	, m_unSceneVAO( 0 )
-#ifdef SPS
 	, m_nSceneMatrixLocationEyeLeftSPS( -1 )
 	, m_nSceneMatrixLocationEyeRightSPS( -1 )
 	, m_nControllerMatrixLocationEyeLeftSPS( -1 )
 	, m_nControllerMatrixLocationEyeRightSPS( -1 )
 	, m_nRenderModelMatrixLocationEyeLeftSPS( -1 )
 	, m_nRenderModelMatrixLocationEyeRightSPS( -1 )
-#else
 	, m_nSceneMatrixLocation( -1 )
 	, m_nControllerMatrixLocation( -1 )
 	, m_nRenderModelMatrixLocation( -1 )
-#endif // SPS
 	, m_iTrackedControllerCount( 0 )
 	, m_iTrackedControllerCount_Last( -1 )
 	, m_iValidPoseCount( 0 )
@@ -412,8 +416,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_iSceneVolumeInit( 20 )
 	, m_strPoseClasses("")
 	, m_bShowCubes( true )
-	, m_bDefaultEnabled( true )
-	, m_bSpsEnabled( false )
+	, m_currentMode( RenderMode::Default )
 {
 
 	for( int i = 1; i < argc; i++ )
@@ -777,16 +780,15 @@ bool CMainApplication::HandleInput()
 			}
 			if( sdlEvent.key.keysym.sym == SDLK_a )
 			{
-				m_bDefaultEnabled = true;
-				m_bSpsEnabled = true;
+				m_currentMode = RenderMode::Combined;
 			}
 			if( sdlEvent.key.keysym.sym == SDLK_s )
 			{
-				m_bSpsEnabled = !m_bSpsEnabled;
+				m_currentMode = RenderMode::Sps;
 			}
 			if( sdlEvent.key.keysym.sym == SDLK_d )
 			{
-				m_bDefaultEnabled = !m_bDefaultEnabled;
+				m_currentMode = RenderMode::Default;
 			}
 		}
 	}
@@ -920,24 +922,12 @@ void CMainApplication::RenderFrame()
 	{
 		RenderControllerAxes();
 
-		if (m_bSpsEnabled)
+		switch (m_currentMode)
 		{
-			if (m_bDefaultEnabled)
-			{
-				RenderStereoTargetsSPS();
-			}
-			else
-			{
-				RenderStereoTargetsSPS();
-			}
-		}
-		else if (m_bDefaultEnabled)
+		case RenderMode::Combined:
 		{
-			RenderStereoTargets();
-		}
+			RenderStereoTargetsCombined();
 
-		if (m_bSpsEnabled)
-		{
 			BlitSpsFramebufferLayerSPS(vr::Eye_Left);
 			BlitSpsFramebufferLayerSPS(vr::Eye_Right);
 
@@ -946,20 +936,32 @@ void CMainApplication::RenderFrame()
 			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
 		}
-		else
+		case RenderMode::Sps:
 		{
-			// If SPS is not enabled, we will need to submit textures for the eyes. The textures will
-			// only have color of the default rendering is enabled, otherwise they will be blank.
-			if (m_bDefaultEnabled)
-			{
-				BlitFramebuffer(leftEyeDesc);
-				BlitFramebuffer(rightEyeDesc);
-			}
+			RenderStereoTargetsSPS();
+
+			BlitSpsFramebufferLayerSPS(vr::Eye_Left);
+			BlitSpsFramebufferLayerSPS(vr::Eye_Right);
+
+			vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Left], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
+			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+			break;
+		}
+		case RenderMode::Default:
+		{
+			RenderStereoTargets();
+
+			BlitFramebuffer(leftEyeDesc);
+			BlitFramebuffer(rightEyeDesc);
 
 			vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
 			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+			break;
+		}
 		}
 
 		RenderCompanionWindow();
@@ -1849,6 +1851,39 @@ void CMainApplication::RenderStereoTargetsSPS()
 	glDisable( GL_MULTISAMPLE );
 }
 
+void CMainApplication::RenderStereoTargetsCombined()
+{
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+	glEnable( GL_MULTISAMPLE );
+
+	// SPS pass
+	glBindFramebuffer( GL_FRAMEBUFFER, spsDesc.m_nRenderFramebufferId );
+    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0);
+    glNamedFramebufferTexture(spsDesc.m_nRenderFramebufferId, GL_DEPTH_ATTACHMENT, spsDesc.m_nDepthBufferId, 0);
+ 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+	RenderSceneSPS();
+ 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	
+
+	// Default pass
+	// Left Eye
+	glBindFramebuffer( GL_FRAMEBUFFER, spsDesc.m_nCombinedFramebufferId[vr::Eye_Left] );
+	glNamedFramebufferTextureLayer(spsDesc.m_nCombinedFramebufferId[vr::Eye_Left], GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0, vr::Eye_Left);
+	glNamedFramebufferTextureLayer(spsDesc.m_nCombinedFramebufferId[vr::Eye_Left], GL_DEPTH_ATTACHMENT, spsDesc.m_nDepthBufferId, 0, vr::Eye_Left);
+ 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+ 	RenderScene( vr::Eye_Left );
+ 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	// Right Eye
+	glBindFramebuffer( GL_FRAMEBUFFER, spsDesc.m_nCombinedFramebufferId[vr::Eye_Right] );
+	glNamedFramebufferTextureLayer(spsDesc.m_nCombinedFramebufferId[vr::Eye_Right], GL_COLOR_ATTACHMENT0, spsDesc.m_nRenderTextureId, 0, vr::Eye_Right);
+	glNamedFramebufferTextureLayer(spsDesc.m_nCombinedFramebufferId[vr::Eye_Right], GL_DEPTH_ATTACHMENT, spsDesc.m_nDepthBufferId, 0, vr::Eye_Right);
+ 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+ 	RenderScene( vr::Eye_Right );
+ 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	glDisable( GL_MULTISAMPLE );
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Blits the corresponding eye texture from the texture array
@@ -1883,66 +1918,16 @@ void CMainApplication::BlitSpsFramebufferLayerSPS( vr::Hmd_Eye nEye )
 
 
 //-----------------------------------------------------------------------------
-// Purpose: Renders a scene in Single Pass Stereo mode.
-//-----------------------------------------------------------------------------
-void CMainApplication::RenderSceneSPS()
-{
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-
-	if( m_bShowCubes )
-	{
-		glUseProgram( m_unSceneProgramIDSPS );
-		glUniformMatrix4fv( m_nSceneMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
-		glUniformMatrix4fv( m_nSceneMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
-		glUniform1i( m_nSceneCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
-		glBindVertexArray( m_unSceneVAO );
-		glBindTexture( GL_TEXTURE_2D, m_iTexture );
-		glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
-		glBindVertexArray( 0 );
-	}
-
-	bool bIsInputAvailable = m_pHMD->IsInputAvailable();
-
-	if( bIsInputAvailable )
-	{
-		// draw the controller axis lines
-		glUseProgram( m_unControllerTransformProgramIDSPS );
-		glUniformMatrix4fv( m_nControllerMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
-		glUniformMatrix4fv( m_nControllerMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
-		glUniform1i( m_nControllerCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
-		glBindVertexArray( m_unControllerVAO );
-		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
-		glBindVertexArray( 0 );
-	}
-
-	// ----- Render Model rendering -----
-	glUseProgram( m_unRenderModelProgramIDSPS );
-
-	for ( EHand eHand = Left; eHand <= Right; ((int&)eHand)++ )
-	{
-		if ( !m_rHand[eHand].m_bShowController || !m_rHand[eHand].m_pRenderModel )
-			continue;
-
-		const Matrix4 & matDeviceToTracking = m_rHand[eHand].m_rmat4Pose;
-		Matrix4 matMVPEyeLeft = GetCurrentViewProjectionMatrix( vr::Eye_Left ) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeLeftSPS, 1, GL_FALSE, matMVPEyeLeft.get() );
-		Matrix4 matMVPEyeRight = GetCurrentViewProjectionMatrix( vr::Eye_Right ) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeRightSPS, 1, GL_FALSE, matMVPEyeRight.get() );
-		glUniform1i( m_nRenderModelCombinedModeLocationSPS, m_bSpsEnabled && m_bDefaultEnabled );
-
-		m_rHand[eHand].m_pRenderModel->Draw();
-	}
-
-	glUseProgram( 0 );
-}
-
-//-----------------------------------------------------------------------------
 // Purpose: Renders a scene with respect to nEye.
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if ( m_currentMode == RenderMode::Default)
+	{
+		// Do not clear the drawing buffer when SPS is enabled because
+		// it will clear the contents from the SPS pass.
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
 	glEnable(GL_DEPTH_TEST);
 
 	if( m_bShowCubes )
@@ -1985,7 +1970,60 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	glUseProgram( 0 );
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Renders a scene in Single Pass Stereo mode.
+//-----------------------------------------------------------------------------
+void CMainApplication::RenderSceneSPS()
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
 
+	if( m_bShowCubes )
+	{
+		glUseProgram( m_unSceneProgramIDSPS );
+		glUniformMatrix4fv( m_nSceneMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
+		glUniformMatrix4fv( m_nSceneMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUniform1i( m_nSceneCombinedModeLocationSPS, m_currentMode == RenderMode::Combined );
+		glBindVertexArray( m_unSceneVAO );
+		glBindTexture( GL_TEXTURE_2D, m_iTexture );
+		glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
+		glBindVertexArray( 0 );
+	}
+
+	bool bIsInputAvailable = m_pHMD->IsInputAvailable();
+
+	if( bIsInputAvailable )
+	{
+		// draw the controller axis lines
+		glUseProgram( m_unControllerTransformProgramIDSPS );
+		glUniformMatrix4fv( m_nControllerMatrixLocationEyeLeftSPS,  1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Left ).get() );
+		glUniformMatrix4fv( m_nControllerMatrixLocationEyeRightSPS, 1, GL_FALSE, GetCurrentViewProjectionMatrix( vr::Eye_Right ).get() );
+		glUniform1i( m_nControllerCombinedModeLocationSPS, m_currentMode == RenderMode::Combined );
+		glBindVertexArray( m_unControllerVAO );
+		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
+		glBindVertexArray( 0 );
+	}
+
+	// ----- Render Model rendering -----
+	glUseProgram( m_unRenderModelProgramIDSPS );
+
+	for ( EHand eHand = Left; eHand <= Right; ((int&)eHand)++ )
+	{
+		if ( !m_rHand[eHand].m_bShowController || !m_rHand[eHand].m_pRenderModel )
+			continue;
+
+		const Matrix4 & matDeviceToTracking = m_rHand[eHand].m_rmat4Pose;
+		Matrix4 matMVPEyeLeft = GetCurrentViewProjectionMatrix( vr::Eye_Left ) * matDeviceToTracking;
+		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeLeftSPS, 1, GL_FALSE, matMVPEyeLeft.get() );
+		Matrix4 matMVPEyeRight = GetCurrentViewProjectionMatrix( vr::Eye_Right ) * matDeviceToTracking;
+		glUniformMatrix4fv( m_nRenderModelMatrixLocationEyeRightSPS, 1, GL_FALSE, matMVPEyeRight.get() );
+		glUniform1i( m_nRenderModelCombinedModeLocationSPS, m_currentMode == RenderMode::Combined );
+
+		m_rHand[eHand].m_pRenderModel->Draw();
+	}
+
+	glUseProgram( 0 );
+}
 
 //-----------------------------------------------------------------------------
 // Purpose:
@@ -1999,12 +2037,13 @@ void CMainApplication::RenderCompanionWindow()
 	glUseProgram( m_unCompanionWindowProgramID );
 
 	// render left eye (first half of index array )
-	if (m_bSpsEnabled) {
-		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Left] );
+	if (m_currentMode == RenderMode::Default)
+	{
+		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
+		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Left] );
 	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
@@ -2013,13 +2052,13 @@ void CMainApplication::RenderCompanionWindow()
 	glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
 
 	// render right eye(second half of index array)
-	if (m_bSpsEnabled)
+	if (m_currentMode == RenderMode::Default)
 	{
-		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Right] );
+		glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId );
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId );
+		glBindTexture(GL_TEXTURE_2D, spsDesc.m_nResolveTextureId[vr::Eye_Right] );
 	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
