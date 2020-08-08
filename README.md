@@ -10,9 +10,9 @@ It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliask
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
 <ul>
-<li>Key S: Render the scene using *Single Pass Stereo*</li>
-<li>Key D: Render the scene using the *default* method</li>
-<li>Key A: Render the scene by overlapping *both* methods</li>
+<li>Key S: Render the scene using Single Pass Stereo</li>
+<li>Key D: Render the scene using the default method</li>
+<li>Key A: Render the scene by overlapping both methods</li>
 </ul>
 
 When rendering with the *default* method, the scene is rendered exactly as supplied with the SDK as if no changes were done.
