@@ -9,11 +9,10 @@ It is complementary to my posts [Is Single Pass Stereo worth it?](https://iliask
 
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
-<ul>
-<li>Key S: Render the scene using Single Pass Stereo</li>
-<li>Key D: Render the scene using the default method</li>
-<li>Key A: Render the scene by overlapping both methods</li>
-</ul>
+
+1. **Key S:** Render the scene using *Single Pass Stereo*
+2. **Key D:** Render the scene using the *default* method
+3. **Key A:** Render the scene by overlapping *both* methods
 
 When rendering with the *default* method, the scene is rendered exactly as supplied with the SDK as if no changes were done.
 
@@ -24,26 +23,26 @@ When rendering with both methods, first the *SPS* method is done and then the *d
 ## What to expect
 If you are using an HMD that is having co-planar screens and/or using symmetric projections, then you will observe nothing; the images in all modes will be exactly the same. (Except for the red tint in *both* methods.)
 
-If you are using an HMD that is using asymmetric projections, then you can observe the difference in the images. By changing between *SPS* and *default* (keys S and D) you will see that the objects in the right eye move a bit. This can be observed by placing the HMD on a desk too and changing modes.
+If you are using an HMD that is using asymmetric projections, then you can observe the difference in the images. By changing between *SPS* and *default* (keys **S** and **D**) you will see that the objects in the right eye move a bit. This can be observed by placing the HMD on a desk too and changing modes.
 
-Entering the *both* method, the left eye is fully covered in red or is fully covered in white but the right eye contains objects with both tints. This happens because the objects in the right eye are not in the exact same location when calculated with Single Pass Stereo.
+Entering the *both* method, the left eye is fully covered in red or is fully covered in white but the right eye contains pixels with both tints. This happens because the objects in the right eye are not in the exact same location when calculated with Single Pass Stereo.
 
-Below is a capture from a Valve Index showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys S and D.
+Below is a capture from a Valve Index showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys **S** and **D**.
 
 ![Diff between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Diff between SPS and default rendering for the right eye")
 
 ## Prebuilt binary for Windows 10
 I have added a prebuilt binary in order to execute the program without building it.
-<ol>
-<li>Download the repository.</li>
-<li>Run SteamVR.</li>
-<li>Run the executable sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.</li>
-</ol>
+
+1. Download the repository.
+2. Run SteamVR.
+3. Run the executable single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.
+
 
 ## How to build
-<ol>
-<li>Download the [OpenVR SDK](https://github.com/ValveSoftware/openvr).</li>
-<li>Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.</li>
-<li>Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).</li>
-<li>Build and run the application in either Debug or Release.</li>
-</ol>
+
+1. Download the [OpenVR SDK](https://github.com/ValveSoftware/openvr).
+2. Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.
+3. Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).
+4. Build and run the application in either Debug or Release.
+
