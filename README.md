@@ -36,7 +36,7 @@ I have added a prebuilt binary in order to execute the program without building 
 
 1. Download the repository.
 2. Run SteamVR.
-3. Run the executable sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.
+3. Run the executable single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.
 
 
 ## How to build
