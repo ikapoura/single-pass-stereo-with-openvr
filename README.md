@@ -37,7 +37,7 @@ Below is a capture with both modes enabled, using the key **A**, from a Valve In
 
 | ![Diff between SPS and default rendering for the right eye with both methods enabled](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_mirror_view_combined.gif "Diff between SPS and default rendering for the right eye with both methods enabled") | 
 |:--:| 
-| *Difference between SPS and default rendering with both methods enabled. The left eye is correct but in the right eye the red tinted cube sides should be where the white ones are.* |
+| *Difference between SPS and default rendering with both methods enabled. The left eye is correct, but the red tinted cube sides in the right eye should be where the white ones are.* |
 
 ## Prebuilt binary for Windows 10
 I have added a prebuilt binary in order to execute the program without building it.
