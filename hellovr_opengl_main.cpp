@@ -930,6 +930,7 @@ void CMainApplication::RenderFrame()
 			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
 			vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)spsDesc.m_nResolveTextureId[vr::Eye_Right], vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+			break;
 		}
 		case RenderMode::Sps:
 		{
