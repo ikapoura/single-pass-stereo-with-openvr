@@ -29,7 +29,15 @@ Entering the *both* method, the left eye is fully covered in red or is fully cov
 
 Below is a capture from a Valve Index showing both eyes side by side. You can observe that the right side is slightly moving up and down by switching modes with keys **S** and **D**.
 
-![Diff between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Diff between SPS and default rendering for the right eye")
+| ![Difference between SPS and default rendering for the right eye](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_right_eye_diff.gif "Difference between SPS and default rendering for the right eye") | 
+|:--:| 
+| *Difference between SPS and default rendering for the right eye. The right side is moving up and down when changing modes.* |
+
+Below is a capture with both modes enabled, using the key **A**, from a Valve Index showing both eyes side by side. You can observe that the right side contains both red and yellow tints while the left side is only in red. This means that the positions in the right side are not exactly the same; the red tinted cube sides should be where the white ones are.
+
+| ![Diff between SPS and default rendering for the right eye with both methods enabled](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/sps_mirror_view_combined.gif "Diff between SPS and default rendering for the right eye with both methods enabled") | 
+|:--:| 
+| *Difference between SPS and default rendering with both methods enabled. The left eye is correct, but the red tinted cube sides in the right eye should be where the white ones are.* |
 
 ## Prebuilt binary for Windows 10
 I have added a prebuilt binary in order to execute the program without building it.
@@ -45,4 +53,3 @@ I have added a prebuilt binary in order to execute the program without building 
 2. Open the [hello_opengl sample](https://github.com/ValveSoftware/openvr/tree/master/samples/hellovr_opengl) in Visual Studio.
 3. Replace the file **hellovr_opengl_main.cpp** with the [same file in this project](https://github.com/ikapoura/Single-Pass-Stereo-with-SteamVR/blob/master/hellovr_opengl_main.cpp).
 4. Build and run the application in either Debug or Release.
-
