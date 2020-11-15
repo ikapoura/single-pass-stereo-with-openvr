@@ -19,8 +19,8 @@ First, I provide the steps to do when testing an HMD for SPS compatibility and t
 5. If you are not wearing the HMD, go to step 7.
 6. Close your left eye.
 7. Notice if the right eye image is having **both white and red** cube faces.
-8. If all the cube faces have **the same color**, then SPS is working **correctly**.
-9. If the cube faces have **both red and white tints**, then SPS result is **not correct**.
+    - If all the cube faces have **the same color**, then SPS is **working correctly**.
+    - If the cube faces have **both red and white tints**, then SPS is **not working correctly**.
 
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
