@@ -1,11 +1,24 @@
 # Single Pass Stereo with OpenVR
 
 ## What this project is
-The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes.
+The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes. It is important to note that SPS will produce images regardless of the HMD used, but the right eye image will not be exactly correct in some of them (if not most). So, **it may seem that SPS is working, at first glance, because the problem is not obvious**.
 
 This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR (SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
 
 It is complementary to my posts [Single Pass Stereo: is it worth it?](https://iliaskapouranis.com/2020/07/13/is-single-pass-stereo-worth-it/) and [Single Pass Stereo: wrong depth cues, discomfort and potential risks](https://iliaskapouranis.com/2020/08/13/single-pass-stereo-wrong-depth-cues-discomfort-and-potential-risks/).
+
+First, I provide the steps to do when testing an HMD for SPS compatibility and then the details for the more curious.
+
+## Fast way to check if SPS is working with your HMD, without the details
+1. Download the **whole repository**.
+2. Open the program located at **single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe**.
+3. When the program has started, a scene with many cubes will be rendered.
+4. Press the **key "A"** from the keyboard to activate the test method.
+5. If you are not wearing the HMD, go to step 7.
+6. Close your left eye.
+7. Notice if the right eye image is having **both white and red** cube faces.
+8. If all the cube faces have **the same color**, then SPS is working **correctly**.
+9. If the cube faces have **both red and white tints**, then SPS result is **not correct**.
 
 ## Functionality
 There are keyboard bindings that allow the user to change on-the-fly how the scene is rendered with three keys:
@@ -44,7 +57,7 @@ I have added a prebuilt binary in order to execute the program without building 
 
 1. Download the repository.
 2. Run SteamVR.
-3. Run the executable single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe.
+3. Run the executable **single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe**.
 
 
 ## How to build
