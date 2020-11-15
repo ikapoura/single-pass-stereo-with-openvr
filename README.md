@@ -1,7 +1,9 @@
 # Single Pass Stereo with OpenVR
 
 ## What this project is
-The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes. It is important to note that SPS will produce images regardless of the HMD used, but the right eye image will not be exactly correct in some of them (if not most). So, **it may seem that SPS is working, at first glance, because the problem is not obvious**.
+The focus of this project is to show that Single Pass Stereo is not producing the correct projected image for the right eye when used with a Head Mounted Display (HMD) that is using asymmetric projections for the eyes.
+
+It is important to note that if a graphics card supports SPS, then it will run (if enabled) regardless of what HMD is used; there won't be any crashes and the framerate boost will be applied. The problem is that the right eye image will not be *exactly* correct in some of the headsets (if not most), so, **it may seem that SPS is working, at first glance, because the problem is not obvious**.
 
 This project is a one file project that implements the [Single Pass Stereo](https://developer.nvidia.com/vrworks/graphics/singlepassstereo) functionality in the [OpenVR (SteamVR)](https://github.com/ValveSoftware/openvr) OpenGL sample.
 
