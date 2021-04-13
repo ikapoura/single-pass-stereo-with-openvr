@@ -11,7 +11,7 @@ It is complementary to my posts [Single Pass Stereo: is it worth it?](https://il
 
 First, I provide the steps to do when testing an HMD for SPS compatibility and then the details for the more curious.
 
-## Fast way to check if SPS is working with your HMD, without the details
+## Fast way to check if SPS is compatible with your HMD, without the details
 1. Download the **whole repository**.
 2. Open the program located at **single-pass-stereo-with-openvr/sps_with_openvr_prebuilt/bin/hellovr_opengl.exe**.
 3. When the program has started, a scene with many cubes will be rendered.
